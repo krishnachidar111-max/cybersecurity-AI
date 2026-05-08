@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#00ffe7"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="CyberShield"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="description" content="AI-powered fraud detection — SMS, payments, links, files"/>
+
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png"/>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json"/>
+
+  <title>CyberShield AI — Fraud Protection</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════
+     INSTALL BANNER (PWA prompt)
+═══════════════════════════════ -->
+<div class="install-banner" id="installBanner">
+  <div class="install-icon">
+    <img src="icons/icon-72.png" alt="CyberShield"/>
+  </div>
+  <div class="install-text">
+    <strong>Install CyberShield</strong>
+    <span>Add to home screen for real-time alerts</span>
+  </div>
+  <button class="install-btn" id="installBtn" onclick="triggerInstall()">Install</button>
+  <button class="install-close" onclick="dismissInstall()">✕</button>
+</div>
+
+<!-- ═══════════════════════════════
+     NOTIFICATION PERMISSION BAR
+═══════════════════════════════ -->
+<div class="notif-bar" id="notifBar">
+  <span>🔔 Enable alerts to get notified when fraud is detected</span>
+  <button onclick="requestNotifPermission()">Allow</button>
+  <button class="notif-dismiss" onclick="document.getElementById('notifBar').style.display='none'">✕</button>
+</div>
+
+<!-- ═══════════════════════════════
+     AGENT STATUS BAR
+═══════════════════════════════ -->
+<div class="agent-bar" id="agentBar">
+  <span class="pulse-dot" id="agentDot"></span>
+  <span class="agent-label" id="agentLabel">CyberShield Active</span>
+  <span class="agent-msg" id="agentMsg">Monitoring…</span>
+  <button class="agent-pause" id="agentPauseBtn" onclick="toggleAgent()">⏸</button>
+</div>
+
+<!-- ═══════════════════════════════
+     FRAUD ALERT OVERLAY
+═══════════════════════════════ -->
+<div class="alert-overlay" id="alertOverlay">
+  <div class="alert-card" id="alertCard">
+    <div class="alert-strip" id="alertStrip"></div>
+
+    <div class="alert-top">
+      <div class="alert-emoji" id="alertEmoji">🚨</div>
+      <div class="alert-meta">
+        <div class="alert-badge-pill" id="alertBadge">HIGH RISK</div>
+        <div class="alert-title" id="alertTitle">Fraud Detected</div>
+        <div class="alert-type" id="alertType">Phishing URL</div>
+      </div>
+      <div class="risk-ring" id="riskRing">
+        <svg viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>
+          <circle cx="40" cy="40" r="34" fill="none" stroke-width="6"
+            stroke-dasharray="213.6" stroke-dashoffset="213.6"
+            stroke-linecap="round" transform="rotate(-90 40 40)"
+            id="riskArc" style="transition:stroke-dashoffset 1s ease"/>
+        </svg>
+        <div class="risk-num" id="riskNum">0</div>
+      </div>
+    </div>
+
+    <div class="alert-target-box" id="alertTargetBox"></div>
+
+    <div class="alert-reasons-list" id="alertReasons"></div>
+
+    <div class="alert-ai-box" id="alertAiBox"></div>
+
+    <div class="alert-btns">
+      <button class="abtn-block" onclick="handleAlert('block')">🛡️ Block</button>
+      <button class="abtn-learn" onclick="handleAlert('learn')">📖 Why?</button>
+      <button class="abtn-ignore" onclick="handleAlert('ignore')">Ignore</button>
+    </div>
+
+    <div class="alert-helpline">
+      🆘 Cybercrime Helpline: <strong>1930</strong> &nbsp;|&nbsp;
+      <a href="https://cybercrime.gov.in" target="_blank">cybercrime.gov.in</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     SMS AUTO-SCAN TOAST
+═══════════════════════════════ -->
+<div class="paste-toast" id="pasteToast">
+  <div class="pt-icon">📋</div>
+  <div class="pt-body">
+    <strong>SMS Detected in Clipboard</strong>
+    <span id="pastePreview"></span>
+  </div>
+  <button onclick="scanClipboard()">Scan Now</button>
+  <button class="pt-close" onclick="hidePasteToast()">✕</button>
+</div>
+
+<!-- ═══════════════════════════════
+     MAIN APP
+═══════════════════════════════ -->
+<div class="app">
+
+  <!-- ── TAB CONTENT ── -->
+  <main class="main" id="mainContent">
+
+    <!-- HOME / DASHBOARD -->
+    <section class="tab-section active" id="tab-home">
+
+      <!-- Header -->
+      <div class="home-header">
+        <div class="home-logo">
+          <img src="icons/icon-72.png" alt="CS"/>
+          <div>
+            <div class="hl-name">CyberShield</div>
+            <div class="hl-sub">AI Fraud Protection</div>
+          </div>
+        </div>
+        <div class="home-notif-btn" id="homeNotifBtn" onclick="requestNotifPermission()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </div>
+      </div>
+
+      <!-- Protection Status Card -->
+      <div class="protection-card" id="protectionCard">
+        <div class="pc-glow"></div>
+        <div class="pc-shield">
+          <svg viewBox="0 0 60 68" fill="none">
+            <path d="M30 3L5 13V32C5 47 16 60 30 65C44 60 55 47 55 32V13L30 3Z" fill="rgba(0,255,231,0.08)" stroke="url(#pcg)" stroke-width="2.5"/>
+            <path d="M20 33L27 40L40 27" stroke="#00ffe7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="pcg" x1="5" y1="3" x2="55" y2="65" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00ffe7"/><stop offset="1" stop-color="#0070ff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="pc-text">
+          <div class="pc-status" id="pcStatus">PROTECTED</div>
+          <div class="pc-sub" id="pcSub">All systems active • Tap to scan</div>
+        </div>
+        <div class="pc-stats">
+          <div class="pcs-item"><span id="pcs-total">0</span><small>Scanned</small></div>
+          <div class="pcs-item red"><span id="pcs-high">0</span><small>Blocked</small></div>
+          <div class="pcs-item green"><span id="pcs-safe">0</span><small>Safe</small></div>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="quick-actions">
+        <h3>Quick Scan</h3>
+        <div class="qa-grid">
+          <button class="qa-btn" onclick="showTab('sms')">
+            <div class="qa-icon">💬</div>
+            <span>Scan SMS</span>
+            <small>Paste & check</small>
+          </button>
+          <button class="qa-btn" onclick="showTab('link')">
+            <div class="qa-icon">🔗</div>
+            <span>Check Link</span>
+            <small>URL scanner</small>
+          </button>
+          <button class="qa-btn" onclick="showTab('payment')">
+            <div class="qa-icon">💳</div>
+            <span>Verify Pay</span>
+            <small>Before delivery</small>
+          </button>
+          <button class="qa-btn" onclick="showTab('file')">
+            <div class="qa-icon">📁</div>
+            <span>Scan File</span>
+            <small>Check attachment</small>
+          </button>
+        </div>
+      </div>
+
+      <!-- Demo SMS Alerts -->
+      <div class="demo-sms-section">
+        <h3>⚡ Demo — Tap any suspicious SMS</h3>
+        <div class="demo-sms-list">
+          <div class="demo-sms-item danger" onclick="autoScanMessage('Your SBI account is blocked. Complete KYC immediately. Click: http://sbi-kyc-update.xyz')">
+            <div class="dsms-sender">SBI Bank</div>
+            <div class="dsms-text">Your account is blocked. Complete KYC immediately or your account will be permanently suspended…</div>
+            <div class="dsms-tag">Tap to scan ›</div>
+          </div>
+          <div class="demo-sms-item danger" onclick="autoScanMessage('You are under digital arrest. This is CBI Inspector Sharma. Transfer ₹50,000 now or FIR will be filed.')">
+            <div class="dsms-sender">Unknown +91</div>
+            <div class="dsms-text">You are under digital arrest. CBI Inspector Sharma. Transfer ₹50,000 now or FIR will be filed…</div>
+            <div class="dsms-tag">Tap to scan ›</div>
+          </div>
+          <div class="demo-sms-item warn" onclick="autoScanMessage('Congratulations! You won ₹10 Lakh in KBC lottery. Claim within 24 hours. Call: 9876543210')">
+            <div class="dsms-sender">KBC Lottery</div>
+            <div class="dsms-text">Congratulations! You won ₹10 Lakh in KBC lottery. Claim within 24 hours before expiry…</div>
+            <div class="dsms-tag">Tap to scan ›</div>
+          </div>
+          <div class="demo-sms-item warn" onclick="autoScanMessage('Send OTP to verify your refund of ₹5000. Our agent is waiting. Share immediately to process.')">
+            <div class="dsms-sender">Refund Service</div>
+            <div class="dsms-text">Send OTP to verify your refund of ₹5000. Our agent is waiting. Share immediately…</div>
+            <div class="dsms-tag">Tap to scan ›</div>
+          </div>
+          <div class="demo-sms-item safe" onclick="autoScanMessage('Your order #45678 has been shipped. Expected delivery: Tomorrow by 5 PM. Track: official-app.com/track')">
+            <div class="dsms-sender">Amazon</div>
+            <div class="dsms-text">Your order #45678 has been shipped. Expected delivery: Tomorrow by 5 PM. Track on app…</div>
+            <div class="dsms-tag">Tap to scan ›</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Alerts -->
+      <div class="recent-section">
+        <div class="rs-header">
+          <h3>Recent Alerts</h3>
+          <button onclick="showTab('history')" class="rs-viewall">View All</button>
+        </div>
+        <div id="recentList">
+          <div class="empty-msg">No scans yet — tap a demo above to start</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SMS SCANNER -->
+    <section class="tab-section" id="tab-sms">
+      <div class="tab-header">
+        <h1>💬 SMS / Message Scanner</h1>
+        <p>Paste any SMS, WhatsApp, or email text</p>
+      </div>
+
+      <div class="scan-card">
+        <div class="clipboard-btn-row">
+          <button class="clipboard-btn" onclick="pasteFromClipboard()">
+            📋 Paste from Clipboard
+          </button>
+          <span class="or-text">or type below</span>
+        </div>
+
+        <textarea id="smsInput" rows="6"
+          placeholder="Paste SMS, WhatsApp message, email, or notification here…&#10;&#10;Example: 'Your account is blocked. Complete KYC now: http://…'"
+          oninput="livePreviewSMS(this.value)"></textarea>
+
+        <div class="live-preview" id="smsLivePreview" style="display:none;"></div>
+
+        <div class="demo-pills">
+          <span class="dp-label">Demo:</span>
+          <button class="dp-pill danger" onclick="loadSMS('Your SBI account is blocked. Complete KYC immediately. Click: http://sbi-kyc-update.xyz')">KYC Block</button>
+          <button class="dp-pill danger" onclick="loadSMS('You are under digital arrest. CBI Inspector Sharma. Transfer ₹50,000 now or FIR will be filed against you.')">Digital Arrest</button>
+          <button class="dp-pill warn" onclick="loadSMS('Congratulations! You won ₹10 Lakh in KBC lottery. Claim within 24 hours. Call 9876543210 now.')">Lottery Win</button>
+          <button class="dp-pill warn" onclick="loadSMS('Send OTP to verify refund of ₹5000. Our agent is waiting. Share immediately.')">OTP Refund</button>
+          <button class="dp-pill safe" onclick="loadSMS('Your HDFC Bank account was credited with INR 1500.00 on 25-Apr. Avail. bal: INR 45,230.00')">Bank Credit</button>
+        </div>
+
+        <button class="scan-action-btn" onclick="runSMSScan()">
+          <span>🔍 ANALYZE MESSAGE</span>
+        </button>
+
+        <div id="smsResult" class="result-box" style="display:none;"></div>
+      </div>
+
+      <!-- Keyword Reference -->
+      <div class="keyword-ref-card">
+        <h4>Scam Keywords CyberShield Detects</h4>
+        <div class="kw-grid" id="kwGrid"></div>
+      </div>
+    </section>
+
+    <!-- LINK SCANNER -->
+    <section class="tab-section" id="tab-link">
+      <div class="tab-header">
+        <h1>🔗 Link / URL Scanner</h1>
+        <p>Check any URL before clicking</p>
+      </div>
+
+      <div class="scan-card">
+        <div class="clipboard-btn-row">
+          <button class="clipboard-btn" onclick="pasteLinkFromClipboard()">📋 Paste Link</button>
+        </div>
+
+        <div class="url-input-wrap">
+          <span class="url-prefix">🔗</span>
+          <input type="url" id="urlInput" inputmode="url"
+            placeholder="Paste or type any URL…"
+            onkeydown="if(event.key==='Enter') runURLScan()"/>
+          <button class="url-clear" onclick="document.getElementById('urlInput').value=''">✕</button>
+        </div>
+
+        <div class="demo-pills">
+          <span class="dp-label">Demo links:</span>
+          <button class="dp-pill danger" onclick="setURL('http://sbi-kyc-update.xyz')">sbi-kyc.xyz</button>
+          <button class="dp-pill danger" onclick="setURL('https://paytm-secure-login.top')">paytm-secure.top</button>
+          <button class="dp-pill danger" onclick="setURL('https://phonepe-verify-kyc.click')">phonepe-kyc.click</button>
+          <button class="dp-pill warn" onclick="setURL('https://bit.ly/free-reward123')">bit.ly/free-reward</button>
+          <button class="dp-pill safe" onclick="setURL('https://google.com')">google.com</button>
+          <button class="dp-pill safe" onclick="setURL('https://sbi.co.in')">sbi.co.in</button>
+        </div>
+
+        <button class="scan-action-btn" onclick="runURLScan()">
+          <span id="urlScanBtnTxt">🔍 SCAN URL</span>
+        </button>
+
+        <div id="urlResult" class="result-box" style="display:none;"></div>
+      </div>
+
+      <div class="info-tiles">
+        <div class="info-tile red">
+          <h5>🚩 Danger Signs</h5>
+          <ul>
+            <li>HTTP (no encryption)</li>
+            <li>Fake bank name in URL</li>
+            <li>.xyz .top .click domains</li>
+            <li>IP address as domain</li>
+            <li>3+ hyphens in name</li>
+          </ul>
+        </div>
+        <div class="info-tile green">
+          <h5>✅ Safe Signs</h5>
+          <ul>
+            <li>HTTPS with lock</li>
+            <li>Official .co.in / .com</li>
+            <li>Typed URL directly</li>
+            <li>No suspicious keywords</li>
+            <li>Known trusted domain</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAYMENT FRAUD -->
+    <section class="tab-section" id="tab-payment">
+      <div class="tab-header">
+        <h1>💳 Payment Fraud Detector</h1>
+        <p>Verify payment before delivering goods</p>
+      </div>
+
+      <div class="scan-card pay-card">
+        <div class="pay-warning-banner">
+          ⚠️ Never deliver before confirming payment in your bank account
+        </div>
+
+        <div class="pay-form">
+          <div class="pf-group">
+            <label>Transaction Status</label>
+            <div class="status-selector" id="statusSelector">
+              <button class="ss-btn active" data-val="success" onclick="selectStatus(this)">✅ Success</button>
+              <button class="ss-btn" data-val="pending" onclick="selectStatus(this)">⏳ Pending</button>
+              <button class="ss-btn" data-val="failed" onclick="selectStatus(this)">❌ Failed</button>
+            </div>
+            <input type="hidden" id="payStatus" value="success"/>
+          </div>
+
+          <div class="pf-row">
+            <div class="pf-group">
+              <label>Amount Received (₹)</label>
+              <input type="number" id="payAmount" inputmode="decimal" placeholder="e.g. 1500"/>
+            </div>
+            <div class="pf-group">
+              <label>Expected Amount (₹)</label>
+              <input type="number" id="payExpected" inputmode="decimal" placeholder="e.g. 1500"/>
+            </div>
+          </div>
+
+          <div class="pf-group">
+            <label>UTR / Transaction ID</label>
+            <input type="text" id="payUTR" inputmode="numeric" placeholder="12-digit UTR number" maxlength="20"/>
+            <div class="pf-hint">Real UTR = exactly 12 digits</div>
+          </div>
+
+          <div class="pf-group">
+            <label>Sender UPI ID</label>
+            <input type="text" id="payUPI" inputmode="email" placeholder="e.g. user@okicici"/>
+          </div>
+
+          <div class="pf-group">
+            <label>How did you verify?</label>
+            <div class="verify-selector">
+              <label class="vs-opt"><input type="radio" name="verifySrc" value="customer" checked/><span>📸 Customer screenshot</span></label>
+              <label class="vs-opt"><input type="radio" name="verifySrc" value="sms"/><span>📱 Bank SMS</span></label>
+              <label class="vs-opt"><input type="radio" name="verifySrc" value="portal"/><span>💻 Payment portal</span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Demo presets -->
+        <div class="demo-pills">
+          <span class="dp-label">Demo:</span>
+          <button class="dp-pill danger" onclick="loadPayDemo('pending','1000','999999','user@fakebank','1000','customer')">Fake Pending</button>
+          <button class="dp-pill warn"   onclick="loadPayDemo('success','999','123456789012','user@randomxyz','1000','customer')">Amount Mismatch</button>
+          <button class="dp-pill safe"   onclick="loadPayDemo('success','1500','123456789012','user@okicici','1500','sms')">Legit Payment</button>
+        </div>
+
+        <button class="scan-action-btn" onclick="runPaymentScan()">
+          <span>🔍 VERIFY PAYMENT</span>
+        </button>
+
+        <div id="payResult" class="result-box" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- FILE SCANNER -->
+    <section class="tab-section" id="tab-file">
+      <div class="tab-header">
+        <h1>📁 File Scanner</h1>
+        <p>Check any file before opening or installing</p>
+      </div>
+
+      <div class="scan-card">
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+          ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <div class="dz-icon">📂</div>
+          <div class="dz-title">Tap to select file</div>
+          <div class="dz-sub">or drag & drop here</div>
+          <input type="file" id="fileInput" style="display:none" onchange="handleFileSelect(event)"/>
+        </div>
+
+        <div class="demo-pills">
+          <span class="dp-label">Demo files:</span>
+          <button class="dp-pill danger" onclick="fakeFile('invoice.pdf.exe',204800)">invoice.pdf.exe</button>
+          <button class="dp-pill danger" onclick="fakeFile('kyc_update.apk',5242880)">kyc_update.apk</button>
+          <button class="dp-pill warn"   onclick="fakeFile('reward_claim.js',10240)">reward_claim.js</button>
+          <button class="dp-pill warn"   onclick="fakeFile('upi_refund_form.docm',51200)">upi_refund.docm</button>
+          <button class="dp-pill safe"   onclick="fakeFile('notes.pdf',102400)">notes.pdf</button>
+        </div>
+
+        <div id="fileResult" class="result-box" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ALERT HISTORY -->
+    <section class="tab-section" id="tab-history">
+      <div class="tab-header">
+        <h1>📋 Alert History</h1>
+        <p>All scans in this session</p>
+      </div>
+
+      <div class="hist-toolbar">
+        <div class="hist-filters">
+          <button class="hf active" onclick="filterHist('all',this)">All</button>
+          <button class="hf" onclick="filterHist('high',this)">🔴 High</button>
+          <button class="hf" onclick="filterHist('suspicious',this)">🟡 Warn</button>
+          <button class="hf" onclick="filterHist('safe',this)">🟢 Safe</button>
+        </div>
+        <button class="hf-clear" onclick="clearHistory()">🗑 Clear</button>
+      </div>
+
+      <div id="histList">
+        <div class="empty-msg">No scans yet.</div>
+      </div>
+    </section>
+
+    <!-- AI CHAT -->
+    <section class="tab-section" id="tab-ai">
+      <div class="tab-header">
+        <h1>🤖 AI Safety Assistant</h1>
+        <p>Ask about any scam or fraud type</p>
+      </div>
+
+      <div class="chat-wrap">
+        <div class="chat-msgs" id="chatMsgs">
+          <div class="chat-bot-msg">
+            <div class="cbot-avatar">🛡️</div>
+            <div class="cbot-bubble">
+              <p>Hello! I'm CyberShield AI. Ask me about any online fraud or scam.</p>
+              <div class="chat-chips">
+                <button onclick="askBot('What is phishing?')">Phishing</button>
+                <button onclick="askBot('How do UPI scams work?')">UPI Scams</button>
+                <button onclick="askBot('What is digital arrest scam?')">Digital Arrest</button>
+                <button onclick="askBot('How to stay safe online?')">Stay Safe</button>
+                <button onclick="askBot('How do OTP scams work?')">OTP Theft</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" id="chatIn" placeholder="Ask about any scam…"
+            onkeydown="if(event.key==='Enter')sendChat()"/>
+          <button class="chat-send" onclick="sendChat()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── BOTTOM NAV ── -->
+  <nav class="bottom-nav">
+    <button class="bn active" onclick="showTab('home')" data-tab="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="bn" onclick="showTab('sms')" data-tab="sms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span>SMS</span>
+    </button>
+    <button class="bn scan-center-btn" onclick="showTab('link')" data-tab="link">
+      <div class="scan-fab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <span>Scan</span>
+    </button>
+    <button class="bn" onclick="showTab('payment')" data-tab="payment">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      <span>Payment</span>
+    </button>
+    <button class="bn" onclick="showTab('ai')" data-tab="ai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span>AI Help</span>
+    </button>
+  </nav>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
