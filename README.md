@@ -33,12 +33,3 @@ CyberShieldPWA/
 ├── style.css
 ├── sw.js
 └── README.md
-
----
-
-## Method 2: Terminal se README banao
-
-Terminal me ye command run karo:
-
-```powershell
-notepad README.md
